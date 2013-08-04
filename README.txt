@@ -1,3 +1,7 @@
+-Paul Bruner
+Just a simple change that removed the need of Atl librarys and corrected 
+a vram memory detection error over 2048 megs vram.
+
 Doom 3 BFG Edition GPL Source Code
 ==================================
 
