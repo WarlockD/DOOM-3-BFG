@@ -26,6 +26,34 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
+/*
+===========================================================================
+
+Doom 3 BFG Edition GPL Source Code
+Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+
+This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
+
+Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Doom 3 BFG Edition Source Code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Doom 3 BFG Edition Source Code.  If not, see <http://www.gnu.org/licenses/>.
+
+In addition, the Doom 3 BFG Edition Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
+
+If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+
+===========================================================================
+*/
+
 #pragma hdrstop
 #include "../../idlib/precompiled.h"
 
@@ -41,7 +69,7 @@ If you have questions concerning this license or the applicable additional terms
 #undef StrCmpN
 #undef StrCmpNI
 #undef StrCmpI
-#include <atlbase.h>
+//#include <atlbase.h>
 
 #include <comdef.h>
 #include <comutil.h>
@@ -137,51 +165,51 @@ returns in megabytes
 ================
 */
 int Sys_GetVideoRam() {
+	_bstr_t bstrNamespace(L"\\\\.\\root\\CIMV2");
+
 	unsigned int retSize = 64;
+	ULONG uNumOfInstances = 0;
 
-	CComPtr<IWbemLocator> spLoc = NULL;
+	IWbemLocator* spLoc = NULL;
+	IWbemServices* spServices = NULL;
+	IEnumWbemClassObject* spEnumInst = NULL;
+	IWbemClassObject* spInstance = NULL;
+
 	HRESULT hr = CoCreateInstance( CLSID_WbemLocator, 0, CLSCTX_SERVER, IID_IWbemLocator, ( LPVOID * ) &spLoc );
-	if ( hr != S_OK || spLoc == NULL ) {
-		return retSize;
-	}
+	if (FAILED(hr) || spLoc == NULL ) goto Sys_GetVideoRam_Return;
 
-	CComBSTR bstrNamespace( _T( "\\\\.\\root\\CIMV2" ) );
-	CComPtr<IWbemServices> spServices;
-
+	
 	// Connect to CIM
 	hr = spLoc->ConnectServer( bstrNamespace, NULL, NULL, 0, NULL, 0, 0, &spServices );
-	if ( hr != WBEM_S_NO_ERROR ) {
-		return retSize;
-	}
+	if (FAILED(hr))  goto Sys_GetVideoRam_Return;
 
 	// Switch the security level to IMPERSONATE so that provider will grant access to system-level objects.  
 	hr = CoSetProxyBlanket( spServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
-	if ( hr != S_OK ) {
-		return retSize;
-	}
+	if (FAILED(hr))  goto Sys_GetVideoRam_Return;
 
 	// Get the vid controller
-	CComPtr<IEnumWbemClassObject> spEnumInst = NULL;
-	hr = spServices->CreateInstanceEnum( CComBSTR( "Win32_VideoController" ), WBEM_FLAG_SHALLOW, NULL, &spEnumInst ); 
-	if ( hr != WBEM_S_NO_ERROR || spEnumInst == NULL ) {
-		return retSize;
-	}
+	
+	hr = spServices->CreateInstanceEnum( _bstr_t(L"Win32_VideoController"), WBEM_FLAG_SHALLOW, NULL, &spEnumInst ); 
+	if (FAILED(hr) || spEnumInst == NULL ) goto Sys_GetVideoRam_Return;
 
-	ULONG uNumOfInstances = 0;
-	CComPtr<IWbemClassObject> spInstance = NULL;
 	hr = spEnumInst->Next( 10000, 1, &spInstance, &uNumOfInstances );
-
-	if ( hr == S_OK && spInstance ) {
+	
+	if ( SUCCEEDED(hr) && spInstance ) {
 		// Get properties from the object
-		CComVariant varSize;
-		hr = spInstance->Get( CComBSTR( _T( "AdapterRAM" ) ), 0, &varSize, 0, 0 );
-		if ( hr == S_OK ) {
-			retSize = varSize.intVal / ( 1024 * 1024 );
+		_variant_t varSize;
+		hr = spInstance->Get(_bstr_t(L"AdapterRAM"), 0, &varSize, 0, 0 );
+		if ( SUCCEEDED(hr) ) {
+			retSize = ((unsigned int)varSize.intVal / ( 1024 * 1024 ));
 			if ( retSize == 0 ) {
 				retSize = 64;
 			}
 		}
 	}
+Sys_GetVideoRam_Return:
+	if(spLoc) spLoc->Release();
+	if(spServices) spServices->Release();
+	if(spEnumInst) spEnumInst->Release();
+	if(spInstance) spInstance->Release();
 	return retSize;
 }
 
@@ -798,3 +826,4 @@ Sys_ShutdownSymbols
 void Sys_ShutdownSymbols() {
 	Sym_Shutdown();
 }
+
